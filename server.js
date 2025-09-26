@@ -40,14 +40,39 @@ function findSQLiteExecutable() {
         path.join(process.cwd(), 'bin', 'sqlite3.exe')
     ];
 
+    console.log('🔍 Searching for SQLite executable in these paths:');
+    possiblePaths.forEach((p, i) => console.log(`   ${i + 1}. ${p}`));
+
     for (const sqlitePath of possiblePaths) {
         try {
+            console.log(`🔍 Checking: ${sqlitePath}`);
             // For files, check if they exist
             if (sqlitePath.includes('/') || sqlitePath.includes('\\')) {
                 if (fs.existsSync(sqlitePath)) {
-                    sqliteCommand = sqlitePath;
                     console.log(`📍 Found SQLite executable: ${sqlitePath}`);
-                    return sqlitePath;
+
+                    // Test if executable works
+                    try {
+                        const testResult = require('child_process').spawnSync(sqlitePath, ['--version'], {
+                            stdio: 'pipe',
+                            timeout: 3000,
+                            encoding: 'utf8'
+                        });
+
+                        if (testResult.status === 0) {
+                            sqliteCommand = sqlitePath;
+                            console.log(`✅ SQLite executable verified: ${sqlitePath}`);
+                            console.log(`📋 SQLite version: ${testResult.stdout.trim()}`);
+                            return sqlitePath;
+                        } else {
+                            console.log(`❌ SQLite executable found but not working: ${sqlitePath}`);
+                            console.log(`   Error: ${testResult.stderr || 'Unknown error'}`);
+                        }
+                    } catch (testError) {
+                        console.log(`❌ Error testing SQLite executable: ${testError.message}`);
+                    }
+                } else {
+                    console.log(`   ❌ File not found: ${sqlitePath}`);
                 }
             } else {
                 // For system commands, use synchronous spawn
@@ -62,17 +87,20 @@ function findSQLiteExecutable() {
                         sqliteCommand = sqlitePath;
                         console.log(`✅ Found SQLite in PATH: ${sqlitePath}`);
                         return sqlitePath;
+                    } else {
+                        console.log(`   ❌ System command failed: ${sqlitePath}`);
                     }
                 } catch (error) {
-                    // Continue to next path
+                    console.log(`   ❌ System command error: ${sqlitePath} - ${error.message}`);
                 }
             }
         } catch (error) {
-            // Continue to next path
+            console.log(`   ❌ Error checking ${sqlitePath}: ${error.message}`);
         }
     }
 
     console.log('❌ SQLite3 not found in any expected location');
+    console.log('💡 Please ensure sqlite3.exe is placed in the bin/ folder');
     return null;
 }
 
